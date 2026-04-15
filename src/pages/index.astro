@@ -21,7 +21,8 @@ const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/LcBBfxcsU6hLya8nxZ4yUp';
         min-height: 100dvh;
         display: flex;
         align-items: center;
-        padding-block: clamp(3rem, 10vw, 5rem);
+        padding-top: clamp(1.5rem, 5vw, 4rem);
+        padding-bottom: clamp(2rem, 8vw, 5rem);
       "
     >
       <div class="container text-center">
@@ -85,7 +86,7 @@ const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/LcBBfxcsU6hLya8nxZ4yUp';
         <!-- Subtítulo com benefícios -->
         <p
           style="
-            font-size: clamp(1rem, 2.5vw, 1.15rem);
+            font-size: clamp(1.0625rem, 2.5vw, 1.25rem);
             color: #5a5a5a;
             max-width: 520px;
             margin: 0 auto 1.75rem;
@@ -115,7 +116,7 @@ const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/LcBBfxcsU6hLya8nxZ4yUp';
             { icon: '✅', texto: 'Apenas Promoções Selecionadas' },
             { icon: '🚪', texto: 'Pode Sair Quando Quiser' },
           ].map((item) => (
-            <li style="display: flex; align-items: center; gap: .55rem; font-size: .97rem; color: #2a2a2a; font-weight: 600;">
+            <li style="display: flex; align-items: center; gap: .55rem; font-size: 1.0625rem; color: #2a2a2a; font-weight: 600;">
               <span style="font-size: 1.05rem; flex-shrink: 0;" aria-hidden="true">{item.icon}</span>
               {item.texto}
             </li>
