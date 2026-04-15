@@ -1,0 +1,18 @@
+/*
+  # Bloqueia carregamento em iframes (clickjacking)
+  X-Frame-Options: DENY
+
+  # Impede sniffing de MIME type
+  X-Content-Type-Options: nosniff
+
+  # Força HTTPS por 1 ano
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+  # Política de referrer — envia origem apenas em HTTPS
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # Bloqueia câmera, microfone, geolocalização e pagamentos
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+
+  # Content Security Policy — permite GTM, Google Analytics, Fonts e WhatsApp
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://ssl.google-analytics.com; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://stats.g.doubleclick.net; frame-src https://www.googletagmanager.com; frame-ancestors 'none';
