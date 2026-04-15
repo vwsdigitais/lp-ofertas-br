@@ -1,0 +1,246 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/global.css';
+
+// URL do grupo WhatsApp
+const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/LcBBfxcsU6hLya8nxZ4yUp';
+---
+
+<Layout
+  title="🚨 Promoções Reais Direto no Seu WhatsApp! Entre no Grupo de Ofertas do OFERTAS BR."
+  description="Vagas limitadas. Descontos de até 80% em Shopee, Mercado Livre, Amazon e muito mais, direto no seu WhatsApp."
+>
+
+  <!-- ================================================
+       HERO — Primeira Dobra
+       ================================================ -->
+  <main>
+    <section
+      id="hero"
+      style="
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        padding-block: clamp(3rem, 10vw, 5rem);
+      "
+    >
+      <div class="container text-center">
+
+        <!-- Badge de urgência / escassez -->
+        <p
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            background: #fff5f6;
+            color: #7B2D3F;
+            border: 1px solid #f0d5da;
+            border-radius: 999px;
+            font-size: .85rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            padding: .35rem 1rem;
+            margin-bottom: 1.75rem;
+          "
+        >
+          <span aria-hidden="true">🔴</span> Vagas Limitadas
+        </p>
+
+        <!-- Título principal -->
+        <h1
+          style="
+            font-size: clamp(1.4rem, 4vw, 2.2rem);
+            font-weight: 900;
+            line-height: 1.15;
+            letter-spacing: -.02em;
+            color: #1a1a1a;
+            margin-bottom: 1.25rem;
+            max-width: 680px;
+            margin-inline: auto;
+          "
+        >
+          🚨 Promoções Reais Direto no Seu WhatsApp! <span style="color: #7B2D3F;">Entre no Grupo de Ofertas do OFERTAS BR.</span>
+        </h1>
+
+        <!-- Imagem do grupo — redonda -->
+        <div style="margin: 1.25rem auto 1.5rem; width: 120px; height: 120px;">
+          <img
+            src="/imagens/Ofertas-BR.webp"
+            alt="Logo Ofertas BR — Grupo de Ofertas no WhatsApp"
+            width="120"
+            height="120"
+            style="
+              width: 120px;
+              height: 120px;
+              object-fit: cover;
+              border-radius: 50%;
+              box-shadow: 0 4px 20px rgba(0,0,0,.12);
+            "
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+
+        <!-- Subtítulo com benefícios -->
+        <p
+          style="
+            font-size: clamp(1rem, 2.5vw, 1.15rem);
+            color: #5a5a5a;
+            max-width: 520px;
+            margin: 0 auto 1.75rem;
+            line-height: 1.7;
+          "
+        >
+          Descontos de até <strong style="color: #1a1a1a;">80%</strong> em
+          Shopee, Mercado Livre, Amazon e muito mais,
+          direto no seu WhatsApp.
+        </p>
+
+        <!-- Checklist de benefícios — centralizado -->
+        <ul
+          style="
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            width: fit-content;
+            margin: 0 auto 2rem;
+            gap: .6rem;
+          "
+          aria-label="Benefícios do grupo"
+        >
+          {[
+            { icon: '🎟️', texto: 'Cupons Secretos' },
+            { icon: '✅', texto: 'Apenas Promoções Selecionadas' },
+            { icon: '🚪', texto: 'Pode Sair Quando Quiser' },
+          ].map((item) => (
+            <li style="display: flex; align-items: center; gap: .55rem; font-size: .97rem; color: #2a2a2a; font-weight: 600;">
+              <span style="font-size: 1.05rem; flex-shrink: 0;" aria-hidden="true">{item.icon}</span>
+              {item.texto}
+            </li>
+          ))}
+        </ul>
+
+        <!-- Botão CTA principal -->
+        <button
+          id="meuBotaoWhatsapp"
+          class="btn-cta"
+          type="button"
+          aria-label="Entrar no grupo de ofertas do WhatsApp"
+          data-whatsapp-url={WHATSAPP_GROUP_URL}
+        >
+          <!-- Ícone WhatsApp (SVG inline) -->
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.118 1.535 5.845L.057 23.492a.5.5 0 0 0 .61.641l5.788-1.516A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9a9.9 9.9 0 0 1-5.031-1.373l-.36-.214-3.734.979.995-3.64-.236-.374A9.86 9.86 0 0 1 2.1 12C2.1 6.533 6.533 2.1 12 2.1S21.9 6.533 21.9 12 17.467 21.9 12 21.9z"/>
+          </svg>
+          Quero Entrar no Grupo
+        </button>
+
+        <!-- Redutor de ansiedade + plataformas como texto simples -->
+        <p
+          style="
+            margin-top: 1rem;
+            font-size: .8rem;
+            color: #b0b0b0;
+            line-height: 1.6;
+          "
+        >
+          🔒 Grátis &bull; Sem spam &bull; Shopee · Mercado Livre · Amazon
+        </p>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- ================================================
+       RODAPÉ — discreto e pequeno
+       ================================================ -->
+  <footer
+    style="
+      margin-top: auto;
+      border-top: 1px solid #e8e2de;
+      padding: 1.5rem 0;
+      background: #fafafa;
+    "
+  >
+    <div
+      class="container text-center"
+      style="font-size: .78rem; color: #9a9a9a; line-height: 1.7;"
+    >
+      <p style="margin-bottom: .4rem;">
+        Compartilhamos avaliações imparciais de ofertas exclusivas para sua cozinha.
+        Ao comprar pelos links dos nossos grupos, você não paga nada a mais e nós podemos
+        receber uma pequena comissão.
+      </p>
+      <p style="margin-bottom: .6rem;">
+        &copy; 2026 Cozinheira Brasileira – Todos os direitos reservados.
+      </p>
+      <nav aria-label="Links do rodapé">
+        <a
+          href="https://cozinheirabrasileira.com.br/sobre/"
+          style="color: #7B2D3F; margin-inline: .4rem;"
+          target="_blank"
+          rel="noopener noreferrer"
+        >Sobre</a>
+        &bull;
+        <a
+          href="https://cozinheirabrasileira.com.br/politica-cookies/"
+          style="color: #7B2D3F; margin-inline: .4rem;"
+          target="_blank"
+          rel="noopener noreferrer"
+        >Políticas</a>
+        &bull;
+        <a
+          href="https://cozinheirabrasileira.com.br/termos-condicoes/"
+          style="color: #7B2D3F; margin-inline: .4rem;"
+          target="_blank"
+          rel="noopener noreferrer"
+        >Termos</a>
+        &bull;
+        <a
+          href="https://cozinheirabrasileira.com.br/contato/"
+          style="color: #7B2D3F; margin-inline: .4rem;"
+          target="_blank"
+          rel="noopener noreferrer"
+        >Contato</a>
+      </nav>
+    </div>
+  </footer>
+
+</Layout>
+
+<!-- ================================================
+     JAVASCRIPT — Redirecionamento Inteligente + GTM
+     ================================================ -->
+<script is:inline>
+  document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (e) {
+    e.preventDefault();
+
+    // Dispara evento para o GTM antes de redirecionar
+    // Acionador configurado no GTM: Evento Personalizado → whatsapp_group_join_attempt
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ 'event': 'whatsapp_group_join_attempt' });
+
+    // Detecta se o usuário está em dispositivo móvel
+    var isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+      navigator.userAgent
+    );
+
+    if (isMobile) {
+      // Deep Link — abre direto no app do WhatsApp
+      window.location.href = 'whatsapp://chat?code=LcBBfxcsU6hLya8nxZ4yUp';
+    } else {
+      // Desktop — abre no WhatsApp Web
+      window.location.href = 'https://chat.whatsapp.com/LcBBfxcsU6hLya8nxZ4yUp';
+    }
+  });
+</script>

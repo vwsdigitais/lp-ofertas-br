@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Projetos//**)",
+      "Read(//c/Projetos/**)",
+      "Bash(bunx create-astro@latest . --template minimal --install --no-git --yes)",
+      "Bash(git init *)",
+      "Bash(git commit -m 'feat: landing page inicial OFERTAS BR *)"
+    ]
+  }
+}
