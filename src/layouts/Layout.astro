@@ -20,6 +20,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#ffffff" />
 
     <!-- SEO -->
     <title>{title}</title>
@@ -43,20 +44,46 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <link rel="icon" type="image/png" href="/imagens/ofertas-br-ico.png" />
     <link rel="apple-touch-icon" href="/imagens/ofertas-br-ico.png" />
 
-    <!-- Fonte Inter (swap para não bloquear renderização) -->
+    <!-- DNS prefetch para recursos externos críticos -->
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+    <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+
+    <!-- Preconnect para fontes (só os necessários) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap"
-      rel="stylesheet"
-    />
 
-    <!-- Google Tag Manager — deve ser o último script do <head> -->
+    <!--
+      Fonte Inter — carregamento NÃO bloqueante:
+      1. rel="preload" inicia download cedo
+      2. media="print" impede bloqueio de renderização
+      3. onload troca para "all" após carregamento
+      4. noscript garante fallback sem JS
+      Pesos reduzidos: 700;800;900 (sem 400 e 600 — não usados)
+    -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap"
+      />
+    </noscript>
+
+    <!-- Google Tag Manager — async, não bloqueia renderização -->
     <script>
-      // Inicialização do dataLayer antes do GTM
       window.dataLayer = window.dataLayer || [];
     </script>
-    <!-- GTM: GTM-5CJNV5G -->
     <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
