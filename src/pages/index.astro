@@ -238,11 +238,13 @@ const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm';
     );
 
     if (isMobile) {
-      // Deep Link — abre direto no app do WhatsApp
-      window.location.href = 'whatsapp://chat?code=FIDTZSItAHoI0OWPDVeAPm';
+      // Mobile: aguarda 300ms para o Pixel/GTM dispararem, depois abre deep link
+      setTimeout(function () {
+        window.location.href = 'whatsapp://chat?code=FIDTZSItAHoI0OWPDVeAPm';
+      }, 300);
     } else {
-      // Desktop — abre no WhatsApp Web
-      window.location.href = 'https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm';
+      // Desktop: abre WhatsApp Web em nova aba, LP permanece viva para o Pixel
+      window.open('https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm', '_blank');
     }
   });
 </script>
