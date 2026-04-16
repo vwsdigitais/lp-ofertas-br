@@ -105,14 +105,20 @@ document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (
   var isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
 
   if (isMobile) {
-    // Deep Link — abre direto no app instalado
-    window.location.href = 'whatsapp://chat?code=FIDTZSItAHoI0OWPDVeAPm';
+    // Mobile: aguarda 300ms para o Pixel/GTM dispararem, depois abre deep link
+    setTimeout(function () {
+      window.location.href = 'whatsapp://chat?code=FIDTZSItAHoI0OWPDVeAPm';
+    }, 300);
   } else {
-    // Desktop — abre WhatsApp Web
-    window.location.href = 'https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm';
+    // Desktop: abre WhatsApp Web em nova aba, LP permanece viva para o Pixel
+    window.open('https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm', '_blank');
   }
 });
 ```
+
+**Estratégia anti-race condition:**
+- **Mobile:** `setTimeout` de 300ms antes do `window.location.href` — dá tempo ao GTM processar o trigger e ao Facebook Pixel enviar o hit para `facebook.com/tr` antes de navegar para o app. Deep link `whatsapp://` via `window.location.href` é necessário no mobile para compatibilidade total com iOS Safari.
+- **Desktop:** `window.open('_blank')` — abre o WhatsApp Web em nova aba, mantendo a LP viva em background indefinidamente para o Pixel completar.
 
 **Links ativos do grupo WhatsApp:**
 - Web: `https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm`
@@ -201,7 +207,7 @@ Aplicado pela Cloudflare Pages em todas as rotas (`/*`):
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` | Força HTTPS 1 ano |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Vazamento de URL |
 | `Permissions-Policy` | geolocation, microphone, camera, payment bloqueados | Acesso a hardware |
-| `Content-Security-Policy` | GTM, Analytics, Fonts, WhatsApp permitidos | XSS / injeção |
+| `Content-Security-Policy` | GTM, Analytics, Fonts, WhatsApp, Meta/Facebook Pixel permitidos | XSS / injeção |
 
 ---
 
