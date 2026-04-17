@@ -19,11 +19,13 @@ Documento de referência completo para agentes de IA e desenvolvedores.
 |---|---|
 | Framework | Astro 6.1.7 |
 | Runtime / Package Manager | Bun 1.3.x |
-| Output | Static Site (SSG) |
+| Output | Hybrid (SSG + API routes via `@astrojs/cloudflare`) |
 | Hospedagem | Cloudflare Pages |
 | Deploy | Contínuo via GitHub (`main` branch) |
 | Repositório | `https://github.com/vwsdigitais/lp-ofertas-br.git` |
 | Subdomínio | `grupo.cozinheirabrasileira.com.br` |
+
+**Adapter obrigatório:** `@astrojs/cloudflare` está explícito em `package.json` e `astro.config.mjs`. Sem ele, qualquer rota com `export const prerender = false` quebra o build com `[NoAdapterInstalled]`. Não remover.
 
 ---
 
@@ -35,18 +37,22 @@ lp-ofertas-br/
 │   ├── _headers                    # Headers de segurança HTTP (Cloudflare Pages)
 │   ├── favicon.ico                 # Fallback favicon (não usado ativamente)
 │   ├── favicon.svg
+│   ├── js/
+│   │   └── krobt.js                # Rastreamento client-side: IDs, cookies, Pixel, beacon
 │   └── imagens/
 │       ├── Ofertas-BR.webp         # Logo principal (usada no hero — redonda 120px)
 │       └── ofertas-br-ico.png      # Favicon PNG (aba do browser + apple-touch-icon)
 ├── src/
 │   ├── layouts/
-│   │   └── Layout.astro            # Layout base: head completo, GTM, fontes
+│   │   └── Layout.astro            # Layout base: head completo, GTM, Pixel, krobt.js
 │   ├── pages/
+│   │   ├── api/
+│   │   │   └── capi.ts             # API route: recebe POST e envia para Meta CAPI v19.0
 │   │   └── index.astro             # Única página — hero + rodapé + script JS
 │   └── styles/
 │       └── global.css              # Design system: tokens CSS, reset, btn-cta
-├── astro.config.mjs                # Config Astro: site URL, compressHTML
-├── package.json                    # Dependências (apenas astro)
+├── astro.config.mjs                # Config Astro: site URL, compressHTML, adapter cloudflare
+├── package.json                    # Dependências: astro + @astrojs/cloudflare
 ├── bun.lock                        # Lockfile do Bun
 └── tsconfig.json                   # TypeScript strict mode
 ```
@@ -93,32 +99,55 @@ Discreto, fundo `#fafafa`, borda topo `#e8e2de`:
 
 Localização: final de `index.astro`, após `</Layout>`.
 
+O handler do botão segue a **ordem KROB** — crítica para garantir que todos os pixels e beacons disparem antes do redirect:
+
 ```js
 document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (e) {
   e.preventDefault();
 
-  // 1. Dispara evento para o GTM (acionador: whatsapp_group_join_attempt)
+  // 1. Gera eventID único pro Lead (dedup Pixel ↔ CAPI)
+  var leadEventId = window.krobTracker.generateId();
+
+  // 2. Pixel cliente (Meta) — mesmo eventID que CAPI para deduplicação
+  if (typeof fbq !== 'undefined') {
+    fbq('track', 'Lead', {
+      content_name: 'Grupo VIP OFERTAS BR',
+      content_category: 'lead_magnet',
+      value: 1,
+      currency: 'BRL'
+    }, { eventID: leadEventId });
+  }
+
+  // 3. GTM — leadEventId no dataLayer para Google Ads usar como Order ID
   window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ 'event': 'whatsapp_group_join_attempt' });
+  window.dataLayer.push({
+    event: 'whatsapp_group_join_attempt',
+    leadEventId: leadEventId
+  });
 
-  // 2. Detecta mobile via User-Agent
+  // 4. CAPI server-side via beacon (fire-and-forget, sobrevive ao redirect)
+  window.krobTracker.sendBeacon('Lead', {
+    content_name: 'Grupo VIP OFERTAS BR',
+    content_category: 'lead_magnet',
+    value: 1,
+    currency: 'BRL'
+  }, leadEventId);
+
+  // 5. Redirect WhatsApp
   var isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-
   if (isMobile) {
-    // Mobile: aguarda 300ms para o Pixel/GTM dispararem, depois abre deep link
     setTimeout(function () {
       window.location.href = 'whatsapp://chat?code=FIDTZSItAHoI0OWPDVeAPm';
     }, 300);
   } else {
-    // Desktop: abre WhatsApp Web em nova aba, LP permanece viva para o Pixel
     window.open('https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm', '_blank');
   }
 });
 ```
 
 **Estratégia anti-race condition:**
-- **Mobile:** `setTimeout` de 300ms antes do `window.location.href` — dá tempo ao GTM processar o trigger e ao Facebook Pixel enviar o hit para `facebook.com/tr` antes de navegar para o app. Deep link `whatsapp://` via `window.location.href` é necessário no mobile para compatibilidade total com iOS Safari.
-- **Desktop:** `window.open('_blank')` — abre o WhatsApp Web em nova aba, mantendo a LP viva em background indefinidamente para o Pixel completar.
+- **Mobile:** `setTimeout` de 300ms antes do `window.location.href` — dá tempo ao Pixel e beacon dispararem antes de navegar para o app.
+- **Desktop:** `window.open('_blank')` — abre o WhatsApp Web em nova aba, mantendo a LP viva em background.
 
 **Links ativos do grupo WhatsApp:**
 - Web: `https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm`
@@ -137,7 +166,7 @@ O rastreamento usa dois canais paralelos com deduplicação via `eventID` compar
 | Canal | Arquivo | Responsabilidade |
 |---|---|---|
 | Cliente (browser) | `public/js/krobt.js` | Gera IDs, seta cookie `_krob_eid`, dispara Pixel JS e beacons |
-| Servidor (edge) | `functions/api/capi.ts` | Recebe POST em `/api/capi`, envia para Meta Conversions API v19.0 |
+| Servidor (edge) | `src/pages/api/capi.ts` | Rota Astro com `prerender=false`, recebe POST e envia para Meta CAPI v19.0 |
 
 **Cookie first-party:** `_krob_eid` — UUID gerado no page load, Max-Age 180 dias, SameSite=Lax. Usado como `external_id` (SHA-256) na CAPI e como `external_id` no `fbq('init')`.
 
@@ -149,6 +178,10 @@ O rastreamento usa dois canais paralelos com deduplicação via `eventID` compar
 | `META_CAPI_TOKEN` | Secreta (só servidor) | Token de acesso Meta Conversions API |
 | `CAPI_SHARED_SECRET` | Secreta | Segredo KROB (reservado para futuro uso) |
 | `META_TEST_EVENT_CODE` | Opcional/Secreta | Só configura em staging para debug no Events Manager |
+
+> **Atenção:** `import.meta.env.PUBLIC_*` é resolvido em BUILD TIME (não runtime). Por isso o `pixelId` em `Layout.astro` tem fallback hardcoded: `import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506'`. O ID do Pixel é público (aparece em qualquer site com Pixel Meta) — não é segredo.
+
+> **Atenção:** `META_CAPI_TOKEN` é acessado via `context.locals.runtime.env` (runtime do Cloudflare Worker), nunca via `import.meta.env`.
 
 ### Fluxo no Page Load (ViewContent)
 
@@ -172,13 +205,13 @@ O rastreamento usa dois canais paralelos com deduplicação via `eventID` compar
 ```
 1. leadEventId = krobTracker.generateId()  ← UUID único por clique
 
-2. fbq('track', 'Lead', {...}, { eventID: leadEventId })
+2. fbq('track', 'Lead', { value: 1, currency: 'BRL', ... }, { eventID: leadEventId })
    → hit browser → facebook.com/tr
 
 3. dataLayer.push({ event: 'whatsapp_group_join_attempt', leadEventId })
    → GTM dispara tag Google Ads com leadEventId como Order ID
 
-4. krobTracker.sendBeacon('Lead', {...}, leadEventId)
+4. krobTracker.sendBeacon('Lead', { value: 1, currency: 'BRL', ... }, leadEventId)
    → navigator.sendBeacon('/api/capi') — sobrevive ao redirect
 
 5. Redirect WhatsApp (mobile: deep link após 300ms | desktop: nova aba)
@@ -186,17 +219,31 @@ O rastreamento usa dois canais paralelos com deduplicação via `eventID` compar
 
 **Ordem 1→5 é crítica.** Pixel antes do dataLayer, beacon antes do redirect.
 
+### Deduplicação Meta
+
+O Meta Events Manager mostra **dois registros** para cada Lead (um do Pixel cliente, um da CAPI servidor) — isso é **esperado e correto**. O mesmo `eventID` faz com que a Meta contabilize apenas **1 evento** nos relatórios de campanhas. Não tentar "corrigir" removendo um dos dois disparos.
+
 ### Google Tag Manager
 - **ID:** `GTM-5CJNV5G`
 - Inserido em `Layout.astro`: script no `<head>` (async) + iframe `<noscript>` imediatamente após `<body>`
-- **Tags Meta no GTM:** pausadas intencionalmente — o Pixel agora é disparado direto no código (krobt.js + inline script) para controle total sobre `eventID` e timing.
-- **Tags ativas no GTM:** Google Ads (acionada por `whatsapp_group_join_attempt`), GA4, Microsoft Clarity e demais integrações não-Meta.
+- **Tags Meta no GTM:** pausadas intencionalmente — o Pixel é disparado direto no código (krobt.js + inline script) para controle total sobre `eventID` e timing.
+- **Tags ativas no GTM:** Google Ads (acionada por `whatsapp_group_join_attempt`), GA4, Microsoft Clarity, Pinterest e demais integrações não-Meta.
 
 ### Evento de Conversão (GTM)
 - **Nome:** `whatsapp_group_join_attempt`
 - **Tipo de acionador:** Evento Personalizado
 - **Quando dispara:** ao clicar em `#meuBotaoWhatsapp`, após Pixel + beacon
 - **DLV disponível:** `leadEventId` — usar como Order ID na tag do Google Ads
+
+### API Route CAPI (`src/pages/api/capi.ts`)
+
+- `export const prerender = false` — obrigatório para rota funcionar como Worker
+- Acessa env via `context.locals.runtime.env` (Cloudflare Workers runtime)
+- Usa `runtime.ctx.waitUntil()` para retornar 204 imediatamente (não bloqueia beacons)
+- Fallback para `await` se `ctx` não estiver disponível
+- Nunca retorna 500 — qualquer erro resulta em 204 (beacons não têm retry)
+- Eventos permitidos: `ViewContent`, `Lead`, `PageView`
+- SHA-256 do cookie `_krob_eid` como `external_id` no payload CAPI
 
 ---
 
@@ -239,17 +286,16 @@ interface Props {
 }
 ```
 
-Inclui automaticamente:
-- Meta charset, viewport, generator
-- `theme-color: #ffffff` (mobile browser bar branca)
-- SEO: title, description, canonical URL
-- Open Graph completo (og:type, url, title, description, image)
-- Twitter Card (summary_large_image)
-- Favicon PNG + apple-touch-icon
-- `dns-prefetch` para GTM, Analytics, Google Fonts
-- `preconnect` para Google Fonts
-- Fonte Inter (não bloqueante)
-- GTM completo (head + noscript body)
+Inclui automaticamente (nesta ordem):
+1. Meta charset, viewport, generator, theme-color
+2. SEO: title, description, canonical URL
+3. Open Graph + Twitter Card
+4. Favicon PNG + apple-touch-icon
+5. `dns-prefetch` + `preconnect` para fontes e serviços externos
+6. Fonte Inter (não bloqueante via `media="print"`)
+7. `krobt.js` (síncrono — deve rodar antes do Pixel para expor `window.krobTracker`)
+8. Meta Pixel inline: init com `external_id`, ViewContent cliente + servidor com `pageViewEventId` compartilhado
+9. Google Tag Manager (async no head + noscript no body)
 
 ---
 
@@ -264,7 +310,30 @@ Aplicado pela Cloudflare Pages em todas as rotas (`/*`):
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` | Força HTTPS 1 ano |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Vazamento de URL |
 | `Permissions-Policy` | geolocation, microphone, camera, payment bloqueados | Acesso a hardware |
-| `Content-Security-Policy` | GTM, Analytics, Fonts, WhatsApp, Meta/Facebook Pixel permitidos | XSS / injeção |
+| `Content-Security-Policy` | ver abaixo | XSS / injeção |
+
+### CSP — Domínios Permitidos
+
+**script-src:**
+- `'self' 'unsafe-inline'`
+- `https://www.googletagmanager.com` — GTM
+- `https://www.google-analytics.com` `https://ssl.google-analytics.com` — GA4
+- `https://connect.facebook.net` — Meta Pixel (`fbevents.js`)
+- `https://www.clarity.ms` `https://scripts.clarity.ms` — Microsoft Clarity (o script reside em `scripts.clarity.ms`)
+- `https://s.pinimg.com` — Pinterest Tag
+- `https://static.cloudflareinsights.com` — Cloudflare Web Analytics
+- `https://www.google.com` `https://googleads.g.doubleclick.net` — Google Ads
+
+**connect-src:**
+- `'self'`
+- `https://www.googletagmanager.com` `https://www.google-analytics.com` `https://stats.g.doubleclick.net` — Analytics
+- `https://www.facebook.com` `https://connect.facebook.net` — Meta Pixel hits
+- `https://www.clarity.ms` `https://c.clarity.ms` — Clarity (coleta de dados)
+- `https://s.pinimg.com` `https://ct.pinterest.com` — Pinterest tracking
+- `https://www.google.com` `https://googleads.g.doubleclick.net` — Google Ads
+
+**Erros esperados no console (não corrigíveis):**
+O Meta Pixel (`fbevents.js`) tenta conectar em endpoints dinâmicos do "Signal Gateway" da Meta (URLs geradas por anunciante em `*.ecs.us-west-2.on.aws` e `*.run.app`). Esses endpoints não têm domínio fixo — impossível whitelistar. Não afetam o rastreamento principal (hit para `www.facebook.com/tr` funciona normalmente).
 
 ---
 
@@ -324,11 +393,18 @@ git push origin main
 ### Trocar link do grupo WhatsApp
 Editar `src/pages/index.astro` em **3 lugares**:
 1. Linha ~6: constante `WHATSAPP_GROUP_URL`
-2. Linha ~242: `whatsapp://chat?code=NOVO_CODIGO`
-3. Linha ~245: `https://chat.whatsapp.com/NOVO_CODIGO`
+2. No handler do botão: `whatsapp://chat?code=NOVO_CODIGO`
+3. No handler do botão: `https://chat.whatsapp.com/NOVO_CODIGO`
 
 ### Trocar logo
 Substituir `/public/imagens/Ofertas-BR.webp` mantendo o mesmo nome, ou atualizar o `src` na tag `<img>` do hero.
 
 ### Trocar favicon
 Substituir `/public/imagens/ofertas-br-ico.png` mantendo o mesmo nome.
+
+### Adicionar novo evento KROB
+1. Adicionar o nome do evento ao `ALLOWED_EVENTS` em `src/pages/api/capi.ts`
+2. Disparar via `window.krobTracker.sendBeacon('NomeEvento', customData, eventId)` no cliente
+
+### Atualizar domínios no CSP
+Editar a linha `Content-Security-Policy` em `public/_headers`. Sempre adicionar em `script-src` E `connect-src` conforme necessário.
