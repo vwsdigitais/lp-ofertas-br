@@ -227,7 +227,7 @@ O Meta Events Manager mostra **dois registros** para cada Lead (um do Pixel clie
 - **ID:** `GTM-5CJNV5G`
 - Inserido em `Layout.astro`: script no `<head>` (async) + iframe `<noscript>` imediatamente após `<body>`
 - **Tags Meta no GTM:** pausadas intencionalmente — o Pixel é disparado direto no código (krobt.js + inline script) para controle total sobre `eventID` e timing.
-- **Tags ativas no GTM:** Google Ads (acionada por `whatsapp_group_join_attempt`), GA4, Microsoft Clarity, Pinterest e demais integrações não-Meta.
+- **Tags ativas no GTM:** GA4 Event `generate_lead` (acionada por `whatsapp_group_join_attempt`, com parâmetro `lead_event_id` = `{{DLV - leadEventId}}`), GA4 padrão, Microsoft Clarity, Pinterest. O Google Ads consome a conversão via **import do GA4 Key Event**, não via tag direta no GTM.
 
 ### Evento de Conversão (GTM)
 - **Nome:** `whatsapp_group_join_attempt`
