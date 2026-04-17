@@ -120,32 +120,45 @@ async function sendToCapi(
 }
 
 export const POST: APIRoute = async (context) => {
-  let payload: IncomingPayload;
-
+  // Try-catch global: nunca retorna 500 pro cliente (beacon não tem retry)
   try {
-    const text = await context.request.text();
-    payload = JSON.parse(text) as IncomingPayload;
-  } catch {
-    return new Response(null, { status: 400 });
-  }
+    let payload: IncomingPayload;
 
-  const eventName = payload.event_name;
+    try {
+      const text = await context.request.text();
+      payload = JSON.parse(text) as IncomingPayload;
+    } catch {
+      return new Response(null, { status: 400 });
+    }
 
-  if (typeof eventName !== 'string' || !ALLOWED_EVENTS.has(eventName)) {
-    return new Response(null, { status: 400 });
-  }
+    const eventName = payload.event_name;
 
-  // Acessa o runtime do Cloudflare Workers (injetado pelo @astrojs/cloudflare)
-  const runtime = (context.locals as { runtime?: CloudflareRuntime }).runtime;
+    if (typeof eventName !== 'string' || !ALLOWED_EVENTS.has(eventName)) {
+      return new Response(null, { status: 400 });
+    }
 
-  if (!runtime?.env?.META_CAPI_TOKEN) {
-    // Sem token configurado — retorna 204 silenciosamente (não expõe erro)
-    console.error('[capi] META_CAPI_TOKEN não configurado no ambiente');
+    // Acessa o runtime do Cloudflare Workers (injetado pelo @astrojs/cloudflare)
+    const runtime = (context.locals as { runtime?: CloudflareRuntime }).runtime;
+
+    if (!runtime?.env?.META_CAPI_TOKEN) {
+      console.error('[capi] META_CAPI_TOKEN não configurado no ambiente');
+      return new Response(null, { status: 204 });
+    }
+
+    const capiPromise = sendToCapi(payload, context.request, runtime.env);
+
+    // ctx.waitUntil permite retornar 204 antes da CAPI responder (crítico para beacons)
+    // Fallback: await direto se ctx não estiver disponível
+    if (runtime.ctx?.waitUntil) {
+      runtime.ctx.waitUntil(capiPromise);
+    } else {
+      await capiPromise;
+    }
+
+    return new Response(null, { status: 204 });
+  } catch (err) {
+    console.error('[capi] Erro inesperado:', err);
+    // Retorna 204 mesmo em erro — não expõe falha interna, beacon não tem retry
     return new Response(null, { status: 204 });
   }
-
-  // waitUntil: retorna 204 imediatamente, CAPI call continua em background
-  runtime.ctx.waitUntil(sendToCapi(payload, context.request, runtime.env));
-
-  return new Response(null, { status: 204 });
 };
