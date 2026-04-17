@@ -130,16 +130,73 @@ document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (
 
 ## 6. Rastreamento e Analytics
 
+### Arquitetura KROB
+
+O rastreamento usa dois canais paralelos com deduplicação via `eventID` compartilhado:
+
+| Canal | Arquivo | Responsabilidade |
+|---|---|---|
+| Cliente (browser) | `public/js/krobt.js` | Gera IDs, seta cookie `_krob_eid`, dispara Pixel JS e beacons |
+| Servidor (edge) | `functions/api/capi.ts` | Recebe POST em `/api/capi`, envia para Meta Conversions API v19.0 |
+
+**Cookie first-party:** `_krob_eid` — UUID gerado no page load, Max-Age 180 dias, SameSite=Lax. Usado como `external_id` (SHA-256) na CAPI e como `external_id` no `fbq('init')`.
+
+### Variáveis de Ambiente (Cloudflare Pages)
+
+| Variável | Visibilidade | Descrição |
+|---|---|---|
+| `PUBLIC_META_PIXEL_ID` | Pública (embutida no build) | ID do Meta Pixel |
+| `META_CAPI_TOKEN` | Secreta (só servidor) | Token de acesso Meta Conversions API |
+| `CAPI_SHARED_SECRET` | Secreta | Segredo KROB (reservado para futuro uso) |
+| `META_TEST_EVENT_CODE` | Opcional/Secreta | Só configura em staging para debug no Events Manager |
+
+### Fluxo no Page Load (ViewContent)
+
+```
+1. krobt.js carrega (síncrono, antes do Pixel)
+   → gera pageViewEventId = UUID
+   → seta cookie _krob_eid
+
+2. Meta Pixel init com external_id = _krob_eid
+
+3. fbq('track', 'ViewContent', {...}, { eventID: pageViewEventId })
+   → hit browser → facebook.com/tr
+
+4. krobTracker.sendEvent('ViewContent', {...}, { eventId: pageViewEventId })
+   → POST /api/capi → Meta CAPI v19.0
+   → Meta deduplica: mesmo eventID = 1 evento contabilizado
+```
+
+### Fluxo no Click do Botão (Lead)
+
+```
+1. leadEventId = krobTracker.generateId()  ← UUID único por clique
+
+2. fbq('track', 'Lead', {...}, { eventID: leadEventId })
+   → hit browser → facebook.com/tr
+
+3. dataLayer.push({ event: 'whatsapp_group_join_attempt', leadEventId })
+   → GTM dispara tag Google Ads com leadEventId como Order ID
+
+4. krobTracker.sendBeacon('Lead', {...}, leadEventId)
+   → navigator.sendBeacon('/api/capi') — sobrevive ao redirect
+
+5. Redirect WhatsApp (mobile: deep link após 300ms | desktop: nova aba)
+```
+
+**Ordem 1→5 é crítica.** Pixel antes do dataLayer, beacon antes do redirect.
+
 ### Google Tag Manager
 - **ID:** `GTM-5CJNV5G`
 - Inserido em `Layout.astro`: script no `<head>` (async) + iframe `<noscript>` imediatamente após `<body>`
-- `window.dataLayer` inicializado antes do GTM
+- **Tags Meta no GTM:** pausadas intencionalmente — o Pixel agora é disparado direto no código (krobt.js + inline script) para controle total sobre `eventID` e timing.
+- **Tags ativas no GTM:** Google Ads (acionada por `whatsapp_group_join_attempt`), GA4, Microsoft Clarity e demais integrações não-Meta.
 
-### Evento de Conversão
+### Evento de Conversão (GTM)
 - **Nome:** `whatsapp_group_join_attempt`
-- **Tipo de acionador no GTM:** Evento Personalizado
-- **Quando dispara:** ao clicar no botão `#meuBotaoWhatsapp`, antes do redirecionamento
-- **Tag Meta:** HTML Personalizado disparada por este evento (configurada no GTM)
+- **Tipo de acionador:** Evento Personalizado
+- **Quando dispara:** ao clicar em `#meuBotaoWhatsapp`, após Pixel + beacon
+- **DLV disponível:** `leadEventId` — usar como Order ID na tag do Google Ads
 
 ---
 

@@ -12,6 +12,7 @@ const {
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID;
 ---
 
 <!doctype html>
@@ -77,6 +78,43 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <link
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap"
+      />
+    </noscript>
+
+    <!-- KROB — krobt.js síncrono (deve rodar antes do Pixel para expor window.krobTracker) -->
+    <script src="/js/krobt.js" is:inline></script>
+
+    <!-- Meta Pixel — init + ViewContent cliente/servidor com dedup via eventID compartilhado -->
+    <script define:vars={{ pixelId }} is:inline>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+
+      // Init com external_id first-party (cookie _krob_eid já setado pelo krobt.js)
+      fbq('init', pixelId, {
+        external_id: (document.cookie.match(/(?:^|;\s*)_krob_eid=([^;]*)/) || [])[1] || ''
+      });
+
+      // ViewContent cliente — eventID compartilhado com CAPI para deduplicação
+      fbq('track', 'ViewContent', {
+        content_name: 'Grupo VIP OFERTAS BR',
+        content_category: 'lead_magnet'
+      }, { eventID: window.krobTracker.pageViewEventId });
+
+      // ViewContent servidor — mesmo eventID, Meta deduplica automaticamente
+      window.krobTracker.sendEvent('ViewContent', {
+        content_name: 'Grupo VIP OFERTAS BR',
+        content_category: 'lead_magnet'
+      }, { eventId: window.krobTracker.pageViewEventId });
+    </script>
+    <noscript>
+      <img height="1" width="1" style="display:none"
+        src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
       />
     </noscript>
 

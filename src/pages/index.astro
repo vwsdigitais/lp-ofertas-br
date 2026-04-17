@@ -227,23 +227,46 @@ const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm';
   document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (e) {
     e.preventDefault();
 
-    // Dispara evento para o GTM antes de redirecionar
-    // Acionador configurado no GTM: Evento Personalizado → whatsapp_group_join_attempt
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({ 'event': 'whatsapp_group_join_attempt' });
+    // 1. Gera eventID único pro Lead (usado para dedup Pixel ↔ CAPI)
+    var leadEventId = window.krobTracker.generateId();
 
-    // Detecta se o usuário está em dispositivo móvel
+    // 2. Pixel cliente (Meta) — eventID compartilhado com CAPI para deduplicação
+    if (typeof fbq !== 'undefined') {
+      fbq('track', 'Lead', {
+        content_name: 'Grupo VIP OFERTAS BR',
+        content_category: 'lead_magnet',
+        value: 0,
+        currency: 'BRL'
+      }, { eventID: leadEventId });
+    }
+
+    // 3. GTM — leadEventId no dataLayer para tag do Google Ads usar como Order ID
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'whatsapp_group_join_attempt',
+      leadEventId: leadEventId
+    });
+
+    // 4. CAPI server-side via beacon (fire-and-forget, sobrevive ao redirect)
+    window.krobTracker.sendBeacon('Lead', {
+      content_name: 'Grupo VIP OFERTAS BR',
+      content_category: 'lead_magnet',
+      value: 0,
+      currency: 'BRL'
+    }, leadEventId);
+
+    // 5. Redirect (lógica preservada — mobile deep link, desktop nova aba)
     var isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
       navigator.userAgent
     );
 
     if (isMobile) {
-      // Mobile: aguarda 300ms para o Pixel/GTM dispararem, depois abre deep link
+      // aguarda 300ms: dá tempo ao Pixel + beacon dispararem antes de navegar
       setTimeout(function () {
         window.location.href = 'whatsapp://chat?code=FIDTZSItAHoI0OWPDVeAPm';
       }, 300);
     } else {
-      // Desktop: abre WhatsApp Web em nova aba, LP permanece viva para o Pixel
+      // Desktop: nova aba — LP permanece viva, Pixel e beacon completam normalmente
       window.open('https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm', '_blank');
     }
   });
