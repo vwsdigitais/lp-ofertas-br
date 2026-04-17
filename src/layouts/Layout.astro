@@ -12,7 +12,10 @@ const {
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
-const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID;
+// PUBLIC_META_PIXEL_ID é público (aparece no HTML de qualquer site com Pixel Meta).
+// Fallback hardcoded porque o Cloudflare Workers resolve env vars no runtime,
+// mas import.meta.env é resolvido no build time (onde a var não está disponível).
+const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
 ---
 
 <!doctype html>
