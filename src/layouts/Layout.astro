@@ -157,17 +157,26 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
         external_id: (document.cookie.match(/(?:^|;\s*)_krob_eid=([^;]*)/) || [])[1] || ''
       });
 
-      // ViewContent cliente — eventID compartilhado com CAPI para deduplicação
+      // PageView pixel — eventID compartilhado com CAPI para deduplicação
+      fbq('track', 'PageView', {}, { eventID: window.krobTracker.pageViewEventId });
+
+      // PageView servidor — mesmo eventID, Meta deduplica automaticamente
+      window.krobTracker.sendEvent('PageView', {}, { eventId: window.krobTracker.pageViewEventId });
+
+      // ViewContent — ID próprio para não colidir com o dedup do PageView
+      var vcEventId = window.krobTracker.generateId();
+
+      // ViewContent pixel
       fbq('track', 'ViewContent', {
         content_name: 'Grupo VIP OFERTAS BR',
         content_category: 'lead_magnet'
-      }, { eventID: window.krobTracker.pageViewEventId });
+      }, { eventID: vcEventId });
 
-      // ViewContent servidor — mesmo eventID, Meta deduplica automaticamente
+      // ViewContent servidor — mesmo vcEventId, Meta deduplica automaticamente
       window.krobTracker.sendEvent('ViewContent', {
         content_name: 'Grupo VIP OFERTAS BR',
         content_category: 'lead_magnet'
-      }, { eventId: window.krobTracker.pageViewEventId });
+      }, { eventId: vcEventId });
     </script>
     <noscript>
       <img height="1" width="1" style="display:none"
