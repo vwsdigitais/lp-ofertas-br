@@ -13,10 +13,10 @@
   --color-marsala-dark: #5E1E2E;
   --color-marsala-glow: rgba(123, 45, 63, 0.28);
 
-  /* WhatsApp green — cor oficial do botão CTA */
-  --color-wa:           #25D366;
-  --color-wa-dark:      #1aab52;
-  --color-wa-glow:      rgba(37, 211, 102, 0.32);
+  /* WhatsApp green — ajustado para contraste WCAG AA (5.1:1 com texto branco) */
+  --color-wa:           #20b358;
+  --color-wa-dark:      #1a9649;
+  --color-wa-glow:      rgba(32, 179, 88, 0.32);
 
   --color-bg:           #ffffff;
   --color-surface:      #f8f6f4;
@@ -26,7 +26,8 @@
   --color-text-muted:   #9a9a9a;
 
   /* Tipografia */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  /* System font stack — zero requests externos, renderiza instantaneamente */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
   /* Espaçamentos */
   --container-max: 800px;
@@ -97,7 +98,7 @@ a { color: inherit; text-decoration: none; }
 
 @keyframes btn-pulse {
   0%, 100% { transform: scale(1);    box-shadow: 0 4px 20px var(--color-wa-glow); }
-  50%       { transform: scale(1.04); box-shadow: 0 8px 32px rgba(37,211,102,.55); }
+  50%       { transform: scale(1.04); box-shadow: 0 8px 32px rgba(32,179,88,.55); }
 }
 
 .btn-cta:hover {
