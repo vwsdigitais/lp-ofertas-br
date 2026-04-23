@@ -58,6 +58,9 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
+    <!-- Preload do elemento LCP — inicia download antes do parser chegar na <img> -->
+    <link rel="preload" as="image" href="/imagens/Ofertas-BR.webp" type="image/webp" fetchpriority="high" />
+
     <!--
       Fonte Inter — carregamento NÃO bloqueante:
       1. rel="preload" inicia download cedo
@@ -84,19 +87,101 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
       />
     </noscript>
 
-    <!-- KROB — krobt.js síncrono (deve rodar antes do Pixel para expor window.krobTracker) -->
-    <script src="/js/krobt.js" is:inline></script>
+    <!-- KROB — inlinado para eliminar request render-blocking (deve rodar antes do Pixel) -->
+    <script is:inline>
+/* krobt.js — KROB Tracker v1.0 */
+(function () {
+  'use strict';
+  function generateId() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return (
+      Date.now().toString(36) + '-' +
+      Math.random().toString(36).slice(2, 10) + '-' +
+      Math.random().toString(36).slice(2, 10)
+    );
+  }
+  function getCookie(name) {
+    var match = document.cookie.match(
+      new RegExp('(?:^|;\\s*)' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)')
+    );
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+  function setKrobCookie(id) {
+    document.cookie =
+      '_krob_eid=' + encodeURIComponent(id) +
+      '; Max-Age=15552000; Path=/; SameSite=Lax; Secure';
+  }
+  var pageViewEventId = generateId();
+  setKrobCookie(pageViewEventId);
+  function getUserData() {
+    return {
+      fbp: getCookie('_fbp'),
+      fbc: getCookie('_fbc'),
+      external_id: getCookie('_krob_eid'),
+    };
+  }
+  function sendEvent(eventName, customData, opts) {
+    opts = opts || {};
+    var eventId = opts.eventId || generateId();
+    var payload = {
+      event_name: eventName,
+      event_id: eventId,
+      event_time: Math.floor(Date.now() / 1000),
+      event_source_url: window.location.href,
+      user_data: getUserData(),
+      custom_data: customData || {},
+    };
+    fetch('/api/capi', {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(function (err) { console.error('[krobt] sendEvent error:', err); });
+    return eventId;
+  }
+  function sendBeacon(eventName, customData, eventId) {
+    eventId = eventId || generateId();
+    var payload = {
+      event_name: eventName,
+      event_id: eventId,
+      event_time: Math.floor(Date.now() / 1000),
+      event_source_url: window.location.href,
+      user_data: getUserData(),
+      custom_data: customData || {},
+    };
+    var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/capi', blob);
+    } else {
+      fetch('/api/capi', {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(function (err) { console.error('[krobt] sendBeacon fallback error:', err); });
+    }
+    return eventId;
+  }
+  window.krobTracker = {
+    pageViewEventId: pageViewEventId,
+    generateId: generateId,
+    getUserData: getUserData,
+    sendEvent: sendEvent,
+    sendBeacon: sendBeacon,
+  };
+})();
+    </script>
 
-    <!-- Meta Pixel — init + ViewContent cliente/servidor com dedup via eventID compartilhado -->
+    <!-- Meta Pixel — stub na main thread; fbevents.js carrega no Web Worker via Partytown -->
     <script define:vars={{ pixelId }} is:inline>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      // Stub sem injeção de script — fbevents.js é carregado pelo Partytown abaixo.
+      // O worker define fbq.callMethod; o stub encaminha chamadas para ele quando disponível.
+      !function(f,n){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
       n.callMethod.apply(n,arguments):n.queue.push(arguments)};
       if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
+      n.queue=[];}(window);
 
       // Init com external_id first-party (cookie _krob_eid já setado pelo krobt.js)
       fbq('init', pixelId, {
@@ -115,17 +200,17 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
         content_category: 'lead_magnet'
       }, { eventId: window.krobTracker.pageViewEventId });
     </script>
+    <!-- fbevents.js no Web Worker — libera main thread do parse/execução pesada -->
+    <script type="text/partytown" src="https://connect.facebook.net/en_US/fbevents.js" is:inline></script>
     <noscript>
       <img height="1" width="1" style="display:none"
         src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
       />
     </noscript>
 
-    <!-- Google Tag Manager — async, não bloqueia renderização -->
-    <script>
-      window.dataLayer = window.dataLayer || [];
-    </script>
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    <!-- Google Tag Manager — dataLayer init na main thread; GTM carrega no Web Worker via Partytown -->
+    <script is:inline>window.dataLayer = window.dataLayer || [];</script>
+    <script type="text/partytown" is:inline>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
