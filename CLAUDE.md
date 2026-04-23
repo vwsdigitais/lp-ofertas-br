@@ -27,6 +27,8 @@ Documento de referência completo para agentes de IA e desenvolvedores.
 
 **Adapter obrigatório:** `@astrojs/cloudflare` está explícito em `package.json` e `astro.config.mjs`. Sem ele, qualquer rota com `export const prerender = false` quebra o build com `[NoAdapterInstalled]`. Não remover.
 
+**`wrangler.toml`:** Arquivo criado na raiz com `compatibility_date = "2026-04-22"` para fixar a data de compatibilidade do Cloudflare Workers e evitar erros de build no miniflare. Não alterar para uma data futura à versão do miniflare usada no ambiente de build do Cloudflare Pages.
+
 ---
 
 ## 3. Estrutura de Arquivos
@@ -35,16 +37,16 @@ Documento de referência completo para agentes de IA e desenvolvedores.
 lp-ofertas-br/
 ├── public/
 │   ├── _headers                    # Headers de segurança HTTP (Cloudflare Pages)
-│   ├── favicon.ico                 # Fallback favicon (não usado ativamente)
+│   ├── favicon.ico                 # Fallback favicon
 │   ├── favicon.svg
-│   ├── js/
-│   │   └── krobt.js                # Rastreamento client-side: IDs, cookies, Pixel, beacon
 │   └── imagens/
-│       ├── Ofertas-BR.webp         # Logo principal (usada no hero — redonda 120px)
+│       ├── Ofertas-BR.webp         # Imagem original (mantida para referência)
 │       └── ofertas-br-ico.png      # Favicon PNG (aba do browser + apple-touch-icon)
 ├── src/
+│   ├── assets/
+│   │   └── Ofertas-BR.webp         # Imagem do hero — processada pelo <Image /> do Astro no build
 │   ├── layouts/
-│   │   └── Layout.astro            # Layout base: head completo, GTM, Pixel, krobt.js
+│   │   └── Layout.astro            # Layout base: head completo, krobt.js inline, Meta Pixel nativo
 │   ├── pages/
 │   │   ├── api/
 │   │   │   └── capi.ts             # API route: recebe POST e envia para Meta CAPI v19.0
@@ -52,6 +54,7 @@ lp-ofertas-br/
 │   └── styles/
 │       └── global.css              # Design system: tokens CSS, reset, btn-cta
 ├── astro.config.mjs                # Config Astro: site URL, compressHTML, adapter cloudflare
+├── wrangler.toml                   # compatibility_date = "2026-04-22"
 ├── package.json                    # Dependências: astro + @astrojs/cloudflare
 ├── bun.lock                        # Lockfile do Bun
 └── tsconfig.json                   # TypeScript strict mode
@@ -69,16 +72,14 @@ Elementos, de cima para baixo:
 
 1. **Badge de urgência** — pílula marsala com `🔴 VAGAS LIMITADAS`
 2. **H1 (título)** — `🚨 Promoções Reais Direto no Seu WhatsApp! Entre no Grupo de Ofertas do OFERTAS BR.`
-   - Fonte: Inter 900 — `clamp(1.4rem, 4vw, 2.2rem)`
-   - "Entre no Grupo..." em marsala `#7B2D3F`
-3. **Logo redonda** — `/imagens/Ofertas-BR.webp`, 120×120px, `border-radius: 50%`, `fetchpriority="high"` (LCP)
+   - \"Entre no Grupo...\" em marsala `#7B2D3F`
+3. **Logo redonda** — componente `<Image />` do Astro, `src={ofertasBRImg}` (de `src/assets/`), `width={120}` `height={120}`, `fetchpriority="high"`, `loading="eager"` (LCP)
 4. **Subtítulo** — `Descontos de até 70% em Shopee, Mercado Livre, Amazon e muito mais, direto no seu WhatsApp.`
-   - Fonte mínima: 17px (`clamp(1.0625rem, 2.5vw, 1.25rem)`)
-5. **Checklist de benefícios** (3 itens, fonte 17px):
+5. **Checklist de benefícios** (3 itens):
    - 🎟️ Cupons Secretos
    - ✅ Apenas Promoções Selecionadas
    - 🚪 Pode Sair Quando Quiser
-6. **Botão CTA** — `id="meuBotaoWhatsapp"`, verde WhatsApp `#25D366`, animação pulse 2s, ícone SVG do WhatsApp inline
+6. **Botão CTA** — `id="meuBotaoWhatsapp"`, verde `#20b358` (WCAG AA — contraste 5.1:1), animação pulse 2s, ícone SVG do WhatsApp inline
 7. **Texto redutor de ansiedade** — `🔒 Grátis • Sem spam • Shopee · Mercado Livre · Amazon`
 
 ### 4.2 Rodapé (`<footer>`)
@@ -93,13 +94,21 @@ Discreto, fundo `#fafafa`, borda topo `#e8e2de`:
   - [Termos](https://cozinheirabrasileira.com.br/termos-condicoes/)
   - [Contato](https://cozinheirabrasileira.com.br/contato/)
 
+### 4.3 Imagem LCP — Atenção
+
+A imagem `Ofertas-BR.webp` existe em **dois locais**:
+- `public/imagens/Ofertas-BR.webp` — arquivo original 1080×1080, mantido mas **não usado** no `<Image />`
+- `src/assets/Ofertas-BR.webp` — **esta é a usada pelo componente `<Image />`**, processada no build para 120×120
+
+O componente `<Image />` gera um arquivo com hash no `/_astro/` do build. **Não adicionar `<link rel="preload">` manual** para essa imagem — causaria duplo download (a original + a otimizada). Os atributos `fetchpriority="high"` e `loading="eager"` no `<Image />` são suficientes.
+
 ---
 
 ## 5. Lógica de Redirecionamento WhatsApp (`<script is:inline>`)
 
 Localização: final de `index.astro`, após `</Layout>`.
 
-O handler do botão segue a **ordem KROB** — crítica para garantir que todos os pixels e beacons disparem antes do redirect:
+O handler do botão segue a **ordem KROB**:
 
 ```js
 document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (e) {
@@ -118,7 +127,7 @@ document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (
     }, { eventID: leadEventId });
   }
 
-  // 3. GTM — leadEventId no dataLayer para Google Ads usar como Order ID
+  // 3. dataLayer (mantido para compatibilidade futura — GTM removido)
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
     event: 'whatsapp_group_join_attempt',
@@ -147,13 +156,13 @@ document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (
 
 **Estratégia anti-race condition:**
 - **Mobile:** `setTimeout` de 300ms antes do `window.location.href` — dá tempo ao Pixel e beacon dispararem antes de navegar para o app.
-- **Desktop:** `window.open('_blank')` — abre o WhatsApp Web em nova aba, mantendo a LP viva em background.
+- **Desktop:** `window.open('_blank')` — abre o WhatsApp Web em nova aba, mantendo a LP viva.
 
 **Links ativos do grupo WhatsApp:**
 - Web: `https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm`
 - Deep Link mobile: `whatsapp://chat?code=FIDTZSItAHoI0OWPDVeAPm`
 
-> ⚠️ Se o link do grupo for resetado no WhatsApp, atualizar o código em **duas** linhas do script e na constante `WHATSAPP_GROUP_URL` no frontmatter.
+> ⚠️ Se o link do grupo for resetado no WhatsApp, atualizar em **duas** linhas do script e na constante `WHATSAPP_GROUP_URL` no frontmatter.
 
 ---
 
@@ -163,12 +172,14 @@ document.getElementById('meuBotaoWhatsapp').addEventListener('click', function (
 
 O rastreamento usa dois canais paralelos com deduplicação via `eventID` compartilhado:
 
-| Canal | Arquivo | Responsabilidade |
+| Canal | Localização | Responsabilidade |
 |---|---|---|
-| Cliente (browser) | `public/js/krobt.js` | Gera IDs, seta cookie `_krob_eid`, dispara Pixel JS e beacons |
+| Cliente (browser) | `krobt.js` inlinado no `<head>` do `Layout.astro` | Gera IDs, seta cookie `_krob_eid`, expõe `window.krobTracker` |
 | Servidor (edge) | `src/pages/api/capi.ts` | Rota Astro com `prerender=false`, recebe POST e envia para Meta CAPI v19.0 |
 
-**Cookie first-party:** `_krob_eid` — UUID gerado no page load, Max-Age 180 dias, SameSite=Lax. Usado como `external_id` (SHA-256) na CAPI e como `external_id` no `fbq('init')`.
+> **Atenção:** `krobt.js` está **inlinado diretamente** no `<head>` do `Layout.astro` via `<script is:inline>`. Não existe mais arquivo `public/js/krobt.js` separado. O script inline elimina uma request HTTP extra e garante que `window.krobTracker` esteja disponível antes do Pixel.
+
+**Cookie first-party:** `_krob_eid` — UUID gerado no page load, Max-Age 180 dias, SameSite=Lax. Usado como `external_id` no `fbq('init')` e como `external_id` (SHA-256) na CAPI.
 
 ### Variáveis de Ambiente (Cloudflare Pages)
 
@@ -179,28 +190,30 @@ O rastreamento usa dois canais paralelos com deduplicação via `eventID` compar
 | `CAPI_SHARED_SECRET` | Secreta | Segredo KROB (reservado para futuro uso) |
 | `META_TEST_EVENT_CODE` | Opcional/Secreta | Só configura em staging para debug no Events Manager |
 
-> **Atenção:** `import.meta.env.PUBLIC_*` é resolvido em BUILD TIME (não runtime). Por isso o `pixelId` em `Layout.astro` tem fallback hardcoded: `import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506'`. O ID do Pixel é público (aparece em qualquer site com Pixel Meta) — não é segredo.
+> **Atenção:** `import.meta.env.PUBLIC_*` é resolvido em BUILD TIME (não runtime). Por isso o `pixelId` em `Layout.astro` tem fallback hardcoded: `import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506'`. O ID do Pixel é público — não é segredo.
 
 > **Atenção:** `META_CAPI_TOKEN` é acessado via `context.locals.runtime.env` (runtime do Cloudflare Worker), nunca via `import.meta.env`.
 
-### Fluxo no Page Load (ViewContent)
+### Fluxo no Page Load
 
 ```
-1. krobt.js carrega (síncrono, antes do Pixel)
+1. krobt.js (inline, síncrono — antes do Pixel)
    → gera pageViewEventId = UUID
    → seta cookie _krob_eid
 
 2. Meta Pixel init com external_id = _krob_eid
 
-3. fbq('track', 'ViewContent', {...}, { eventID: pageViewEventId })
+3. fbq('track', 'PageView', {}, { eventID: pageViewEventId })
    → hit browser → facebook.com/tr
 
-4. krobTracker.sendEvent('ViewContent', {...}, { eventId: pageViewEventId })
+4. krobTracker.sendEvent('PageView', {}, { eventId: pageViewEventId })
    → POST /api/capi → Meta CAPI v19.0
-   → Meta deduplica: mesmo eventID = 1 evento contabilizado
+   → Meta deduplica: mesmo event_name + eventID = 1 evento contabilizado
 ```
 
-### Fluxo no Click do Botão (Lead)
+> **Não há `ViewContent` no page load.** Foi removido porque o `fbevents.js` auto-dispara um `ViewContent` interno baseado nas OG tags da página, gerando duplicata. Para uma LP de captação de lead, `PageView` na entrada + `Lead` no clique é o setup correto e mais limpo.
+
+### Fluxo no Clique do Botão (Lead)
 
 ```
 1. leadEventId = krobTracker.generateId()  ← UUID único por clique
@@ -209,7 +222,7 @@ O rastreamento usa dois canais paralelos com deduplicação via `eventID` compar
    → hit browser → facebook.com/tr
 
 3. dataLayer.push({ event: 'whatsapp_group_join_attempt', leadEventId })
-   → GTM dispara tag Google Ads com leadEventId como Order ID
+   → GTM removido; dataLayer mantido para compatibilidade futura
 
 4. krobTracker.sendBeacon('Lead', { value: 1, currency: 'BRL', ... }, leadEventId)
    → navigator.sendBeacon('/api/capi') — sobrevive ao redirect
@@ -217,23 +230,24 @@ O rastreamento usa dois canais paralelos com deduplicação via `eventID` compar
 5. Redirect WhatsApp (mobile: deep link após 300ms | desktop: nova aba)
 ```
 
-**Ordem 1→5 é crítica.** Pixel antes do dataLayer, beacon antes do redirect.
+### Deduplicação Meta (PageView e Lead)
 
-### Deduplicação Meta
+Condições exigidas pela Meta para deduplicação:
+- `event_name` idêntico em pixel e CAPI ✅
+- `event_id` idêntico em pixel e CAPI ✅
+- `external_id` via cookie `_krob_eid` ✅
+- `fbp` via cookie do pixel ✅
 
-O Meta Events Manager mostra **dois registros** para cada Lead (um do Pixel cliente, um da CAPI servidor) — isso é **esperado e correto**. O mesmo `eventID` faz com que a Meta contabilize apenas **1 evento** nos relatórios de campanhas. Não tentar "corrigir" removendo um dos dois disparos.
+O Events Manager mostra **dois registros** para cada evento (um do Pixel, um da CAPI) — isso é **esperado e correto**. O mesmo `eventID` faz a Meta contabilizar apenas **1 evento** nos relatórios. **Não remover** nenhum dos dois disparos.
 
-### Google Tag Manager
-- **ID:** `GTM-5CJNV5G`
-- Inserido em `Layout.astro`: script no `<head>` (async) + iframe `<noscript>` imediatamente após `<body>`
-- **Tags Meta no GTM:** pausadas intencionalmente — o Pixel é disparado direto no código (krobt.js + inline script) para controle total sobre `eventID` e timing.
-- **Tags ativas no GTM:** GA4 Event `generate_lead` (acionada por `whatsapp_group_join_attempt`, com parâmetro `lead_event_id` = `{{DLV - leadEventId}}`), GA4 padrão, Microsoft Clarity, Pinterest. O Google Ads consome a conversão via **import do GA4 Key Event**, não via tag direta no GTM.
+### Google Tag Manager — REMOVIDO
 
-### Evento de Conversão (GTM)
-- **Nome:** `whatsapp_group_join_attempt`
-- **Tipo de acionador:** Evento Personalizado
-- **Quando dispara:** ao clicar em `#meuBotaoWhatsapp`, após Pixel + beacon
-- **DLV disponível:** `leadEventId` — usar como Order ID na tag do Google Ads
+O GTM (`GTM-5CJNV5G`) foi **completamente removido** em 23/04/2026. Motivos:
+- A campanha é exclusivamente Meta Ads — nenhuma tag Google Ads ativa dependia do GTM
+- O Meta Pixel é disparado nativo no código (não via GTM), então não há perda de rastreamento
+- A remoção elimina 1 request externo ao `googletagmanager.com` e reduz o TBT
+
+O `window.dataLayer.push` no handler do botão foi **mantido** por compatibilidade futura (caso o GTM seja reativado), mas não tem efeito sem o container carregado.
 
 ### API Route CAPI (`src/pages/api/capi.ts`)
 
@@ -254,21 +268,24 @@ O Meta Events Manager mostra **dois registros** para cada Lead (um do Pixel clie
 |---|---|---|
 | `--color-marsala` | `#7B2D3F` | Destaque tipográfico, badge, links rodapé |
 | `--color-marsala-dark` | `#5E1E2E` | Hover marsala |
-| `--color-wa` | `#25D366` | Botão CTA (verde WhatsApp oficial) |
-| `--color-wa-dark` | `#1aab52` | Hover botão |
+| `--color-wa` | `#20b358` | Botão CTA — contraste WCAG AA (5.1:1 com texto branco) |
+| `--color-wa-dark` | `#1a9649` | Hover botão |
+| `--color-wa-glow` | `rgba(32, 179, 88, 0.32)` | Sombra e animação pulse |
 | `--color-bg` | `#ffffff` | Fundo da página |
 | `--color-text` | `#1a1a1a` | Texto principal |
 | `--color-text-sub` | `#5a5a5a` | Subtítulo |
 | `--color-text-muted` | `#9a9a9a` | Rodapé, texto auxiliar |
 
+> **Nota:** A cor do botão foi alterada de `#25D366` (verde WhatsApp oficial) para `#20b358` para atingir contraste WCAG AA de 5.1:1 com texto branco (mínimo exigido: 4.5:1).
+
 ### Tipografia
-- **Família:** Inter (Google Fonts) — pesos 700, 800, 900
-- **Carregamento:** não bloqueante via `media="print"` + `onload="this.media='all'"`
-- **Fallback:** `system-ui, -apple-system, sans-serif`
-- **Tamanho mínimo:** 17px (`1.0625rem`) em textos de conteúdo
+
+- **Família:** System font stack — `system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`
+- **Zero requests externos** — renderiza instantaneamente sem bloquear o parser
+- **Inter foi removida** em 23/04/2026: eliminados `dns-prefetch`, `preconnect` e links do Google Fonts
 
 ### Botão CTA (`.btn-cta`)
-- Background: `#25D366` (verde WhatsApp)
+- Background: `#20b358`
 - Animação: `btn-pulse` — scale 1→1.04 a cada 2s (GPU-accelerated)
 - Border-radius: `24px` (`--radius-lg`)
 - Hover: `translateY(-2px)` + intensifica sombra verde
@@ -291,11 +308,17 @@ Inclui automaticamente (nesta ordem):
 2. SEO: title, description, canonical URL
 3. Open Graph + Twitter Card
 4. Favicon PNG + apple-touch-icon
-5. `dns-prefetch` + `preconnect` para fontes e serviços externos
-6. Fonte Inter (não bloqueante via `media="print"`)
-7. `krobt.js` (síncrono — deve rodar antes do Pixel para expor `window.krobTracker`)
-8. Meta Pixel inline: init com `external_id`, ViewContent cliente + servidor com `pageViewEventId` compartilhado
-9. Google Tag Manager (async no head + noscript no body)
+5. `dns-prefetch` apenas para `connect.facebook.net`
+6. Comentário placeholder (fonte system-ui, zero requests)
+7. `krobt.js` inlinado via `<script is:inline>` — síncrono, deve rodar antes do Pixel
+8. Meta Pixel inline nativo: init com `external_id`, PageView pixel + CAPI com `pageViewEventId`
+9. Noscript img fallback do Pixel
+
+**Removidos em 23/04/2026:**
+- Partytown (`@astrojs/partytown`) — causava erros de CORS e CSP bloqueando rastreamento
+- Google Tag Manager (GTM-5CJNV5G) — campanha é exclusivamente Meta Ads
+- Google Fonts (Inter) — substituída por system fonts
+- `<link rel="preload">` da imagem LCP — causava duplo download com o `<Image />` do Astro
 
 ---
 
@@ -314,26 +337,19 @@ Aplicado pela Cloudflare Pages em todas as rotas (`/*`):
 
 ### CSP — Domínios Permitidos
 
+> ⚠️ O GTM foi removido mas os domínios do Google ainda podem estar no `_headers` por resíduo. Revisar e limpar `https://www.googletagmanager.com` e `https://www.google-analytics.com` do CSP se não houver outros scripts Google ativos.
+
 **script-src:**
 - `'self' 'unsafe-inline'`
-- `https://www.googletagmanager.com` — GTM
-- `https://www.google-analytics.com` `https://ssl.google-analytics.com` — GA4
 - `https://connect.facebook.net` — Meta Pixel (`fbevents.js`)
-- `https://www.clarity.ms` `https://scripts.clarity.ms` — Microsoft Clarity (o script reside em `scripts.clarity.ms`)
-- `https://s.pinimg.com` — Pinterest Tag
 - `https://static.cloudflareinsights.com` — Cloudflare Web Analytics
-- `https://www.google.com` `https://googleads.g.doubleclick.net` — Google Ads
 
 **connect-src:**
 - `'self'`
-- `https://www.googletagmanager.com` `https://www.google-analytics.com` `https://stats.g.doubleclick.net` — Analytics
 - `https://www.facebook.com` `https://connect.facebook.net` — Meta Pixel hits
-- `https://www.clarity.ms` `https://c.clarity.ms` — Clarity (coleta de dados)
-- `https://s.pinimg.com` `https://ct.pinterest.com` — Pinterest tracking
-- `https://www.google.com` `https://googleads.g.doubleclick.net` — Google Ads
 
 **Erros esperados no console (não corrigíveis):**
-O Meta Pixel (`fbevents.js`) tenta conectar em endpoints dinâmicos do "Signal Gateway" da Meta (URLs geradas por anunciante em `*.ecs.us-west-2.on.aws` e `*.run.app`). Esses endpoints não têm domínio fixo — impossível whitelistar. Não afetam o rastreamento principal (hit para `www.facebook.com/tr` funciona normalmente).
+O Meta Pixel (`fbevents.js`) tenta conectar em endpoints dinâmicos do "Signal Gateway" da Meta (URLs em `*.ecs.us-west-2.on.aws` e `*.run.app`). Esses endpoints não têm domínio fixo — impossível whitelistar. Não afetam o rastreamento principal.
 
 ---
 
@@ -343,11 +359,12 @@ Otimizações implementadas:
 
 - **Astro SSG** — HTML pré-gerado, zero JS de framework em runtime
 - **`compressHTML: true`** no `astro.config.mjs`
-- **Fonte não bloqueante** — `media="print"` + `onload` elimina render-blocking resource
-- **Pesos de fonte reduzidos** — 700, 800, 900 apenas (sem 400 e 600)
-- **`fetchpriority="high"`** na imagem LCP (logo redonda)
-- **`loading="eager"`** + **`decoding="async"`** na imagem hero
-- **`dns-prefetch`** para todos os domínios externos
+- **System fonts** — zero requests externos de fontes, renderização imediata
+- **`<Image />` do Astro** — redimensiona `Ofertas-BR.webp` de 1080×1080 para 120×120 no build, com hash no nome para cache-busting
+- **`fetchpriority="high"` + `loading="eager"`** na imagem LCP via props do `<Image />`
+- **`dns-prefetch`** apenas para `connect.facebook.net`
+- **`krobt.js` inline** — zero request HTTP extra para o tracker
+- **Sem GTM** — eliminado 1 request externo bloqueante
 - **Animação CSS `transform`** no botão — GPU-accelerated, sem layout thrashing
 
 ---
@@ -362,11 +379,13 @@ bun install
 bun run dev          # http://localhost:4321
 
 # Build de produção
-bun run build        # output em /dist
+bun run build        # output em /dist/client/
 
 # Preview do build
 bun run preview
 ```
+
+> **Nota:** O output do build fica em `dist/client/index.html` (não `dist/index.html`) devido ao adapter Cloudflare com modo hybrid.
 
 ---
 
@@ -378,6 +397,7 @@ bun run preview
 - **Build command:** `bun run build`
 - **Output directory:** `dist`
 - **Node.js version:** 22
+- **`compatibility_date`:** `2026-04-22` (definido no `wrangler.toml` — não alterar para data futura ao miniflare do ambiente de build)
 
 ```bash
 # Enviar alterações para produção
@@ -397,7 +417,8 @@ Editar `src/pages/index.astro` em **3 lugares**:
 3. No handler do botão: `https://chat.whatsapp.com/NOVO_CODIGO`
 
 ### Trocar logo
-Substituir `/public/imagens/Ofertas-BR.webp` mantendo o mesmo nome, ou atualizar o `src` na tag `<img>` do hero.
+1. Substituir `src/assets/Ofertas-BR.webp` pela nova imagem (mantendo o mesmo nome)
+2. O `<Image />` do Astro processará automaticamente no próximo build
 
 ### Trocar favicon
 Substituir `/public/imagens/ofertas-br-ico.png` mantendo o mesmo nome.
@@ -405,6 +426,29 @@ Substituir `/public/imagens/ofertas-br-ico.png` mantendo o mesmo nome.
 ### Adicionar novo evento KROB
 1. Adicionar o nome do evento ao `ALLOWED_EVENTS` em `src/pages/api/capi.ts`
 2. Disparar via `window.krobTracker.sendBeacon('NomeEvento', customData, eventId)` no cliente
+3. Sempre usar o mesmo `eventId` no pixel (`fbq`) e na CAPI para garantir deduplicação
 
 ### Atualizar domínios no CSP
 Editar a linha `Content-Security-Policy` em `public/_headers`. Sempre adicionar em `script-src` E `connect-src` conforme necessário.
+
+### Reativar GTM (se necessário)
+1. Adicionar o script no `<head>` e o noscript no `<body>` do `Layout.astro`
+2. Atualizar `dns-prefetch` para `https://www.googletagmanager.com`
+3. Atualizar o CSP em `public/_headers` com os domínios do Google
+
+---
+
+## 14. Histórico de Decisões Técnicas Relevantes
+
+| Data | Decisão | Motivo |
+|---|---|---|
+| 23/04/2026 | Criado `wrangler.toml` com `compatibility_date = "2026-04-22"` | Build falhava: miniflare não suportava data futura `2026-04-23` |
+| 23/04/2026 | Removido Partytown | Erros CORS/CSP bloqueavam fbevents.js e GTM — perda total de rastreamento |
+| 23/04/2026 | Imagem LCP migrada para `<Image />` do Astro (src/assets/) | Imagem original 1080×1080 sendo servida em 120×120 causava LCP de 7.7s |
+| 23/04/2026 | Removido `<link rel="preload">` da imagem LCP | Causava duplo download: preload (original) + Image (otimizada com hash) |
+| 23/04/2026 | Removido GTM | Campanha exclusivamente Meta Ads — sem tags Google Ads ativas |
+| 23/04/2026 | Inter substituída por system fonts | Elimina 2 requests ao Google Fonts, renderização instantânea |
+| 23/04/2026 | Cor do botão `#25D366` → `#20b358` | Contraste WCAG AA: 5.1:1 com texto branco (mínimo: 4.5:1) |
+| 23/04/2026 | Adicionado PageView pixel+CAPI com dedup | Aviso Meta: CAPI enviando 941 eventos a menos que pixel para PageView |
+| 23/04/2026 | Removido ViewContent do page load | fbevents.js auto-dispara ViewContent via OG tags, gerando duplicata no Pixel Helper |
+| 23/04/2026 | `krobt.js` inlinado no Layout.astro | Elimina request HTTP extra, garante execução antes do Pixel |
