@@ -1,5 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { Image } from 'astro:assets';
+import ofertasBRImg from '../assets/Ofertas-BR.webp';
 import '../styles/global.css';
 
 // URL do grupo WhatsApp
@@ -66,11 +68,11 @@ const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/FIDTZSItAHoI0OWPDVeAPm';
 
         <!-- Imagem do grupo — redonda -->
         <div style="margin: 1.25rem auto 1.5rem; width: 120px; height: 120px;">
-          <img
-            src="/imagens/Ofertas-BR.webp"
+          <Image
+            src={ofertasBRImg}
             alt="Logo Ofertas BR — Grupo de Ofertas no WhatsApp"
-            width="120"
-            height="120"
+            width={120}
+            height={120}
             style="
               width: 120px;
               height: 120px;

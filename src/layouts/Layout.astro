@@ -174,14 +174,16 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
 })();
     </script>
 
-    <!-- Meta Pixel — stub na main thread; fbevents.js carrega no Web Worker via Partytown -->
+    <!-- Meta Pixel -->
     <script define:vars={{ pixelId }} is:inline>
-      // Stub sem injeção de script — fbevents.js é carregado pelo Partytown abaixo.
-      // O worker define fbq.callMethod; o stub encaminha chamadas para ele quando disponível.
-      !function(f,n){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
       n.callMethod.apply(n,arguments):n.queue.push(arguments)};
       if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];}(window);
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
 
       // Init com external_id first-party (cookie _krob_eid já setado pelo krobt.js)
       fbq('init', pixelId, {
@@ -200,17 +202,15 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
         content_category: 'lead_magnet'
       }, { eventId: window.krobTracker.pageViewEventId });
     </script>
-    <!-- fbevents.js no Web Worker — libera main thread do parse/execução pesada -->
-    <script type="text/partytown" src="https://connect.facebook.net/en_US/fbevents.js" is:inline></script>
     <noscript>
       <img height="1" width="1" style="display:none"
         src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
       />
     </noscript>
 
-    <!-- Google Tag Manager — dataLayer init na main thread; GTM carrega no Web Worker via Partytown -->
+    <!-- Google Tag Manager -->
     <script is:inline>window.dataLayer = window.dataLayer || [];</script>
-    <script type="text/partytown" is:inline>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    <script is:inline>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
