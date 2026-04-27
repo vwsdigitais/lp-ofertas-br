@@ -14,6 +14,8 @@ import type { APIRoute } from 'astro';
 interface CloudflareEnv {
   PUBLIC_META_PIXEL_ID: string;
   META_CAPI_TOKEN: string;
+  PUBLIC_META_PIXEL_ID_2?: string;
+  META_CAPI_TOKEN_2?: string;
   META_TEST_EVENT_CODE?: string;
 }
 
@@ -56,27 +58,12 @@ function parseCookies(header: string | null): Record<string, string> {
 async function sendToCapi(
   payload: IncomingPayload,
   request: Request,
-  env: CloudflareEnv
+  pixelId: string,
+  token: string,
+  testEventCode?: string,
+  userData?: Record<string, unknown>
 ): Promise<void> {
   const { event_name, event_id, event_time, event_source_url, custom_data } = payload;
-
-  const clientIp = request.headers.get('CF-Connecting-IP') ?? '';
-  const userAgent = request.headers.get('User-Agent') ?? '';
-  const cookies = parseCookies(request.headers.get('Cookie'));
-
-  const fbp = cookies['_fbp'] ?? '';
-  const fbc = cookies['_fbc'] ?? '';
-  const krobEid = cookies['_krob_eid'] ?? '';
-
-  const externalIdHash = krobEid ? await sha256hex(krobEid) : undefined;
-
-  const userData: Record<string, unknown> = {
-    client_ip_address: clientIp,
-    client_user_agent: userAgent,
-  };
-  if (fbp) userData['fbp'] = fbp;
-  if (fbc) userData['fbc'] = fbc;
-  if (externalIdHash) userData['external_id'] = [externalIdHash];
 
   const eventEntry: Record<string, unknown> = {
     event_name,
@@ -84,7 +71,7 @@ async function sendToCapi(
     event_id,
     action_source: 'website',
     event_source_url,
-    user_data: userData,
+    user_data: userData ?? {},
   };
 
   if (
@@ -98,14 +85,14 @@ async function sendToCapi(
 
   const capiPayload: Record<string, unknown> = {
     data: [eventEntry],
-    access_token: env.META_CAPI_TOKEN,
+    access_token: token,
   };
 
-  if (env.META_TEST_EVENT_CODE) {
-    capiPayload['test_event_code'] = env.META_TEST_EVENT_CODE;
+  if (testEventCode) {
+    capiPayload['test_event_code'] = testEventCode;
   }
 
-  const url = `https://graph.facebook.com/v19.0/${env.PUBLIC_META_PIXEL_ID}/events`;
+  const url = `https://graph.facebook.com/v19.0/${pixelId}/events`;
 
   const resp = await fetch(url, {
     method: 'POST',
@@ -117,6 +104,27 @@ async function sendToCapi(
     const errText = await resp.text();
     console.error('[capi] Meta CAPI error:', resp.status, errText);
   }
+}
+
+async function buildUserData(request: Request): Promise<Record<string, unknown>> {
+  const clientIp = request.headers.get('CF-Connecting-IP') ?? '';
+  const userAgent = request.headers.get('User-Agent') ?? '';
+  const cookies = parseCookies(request.headers.get('Cookie'));
+
+  const fbp = cookies['_fbp'] ?? '';
+  const fbc = cookies['_fbc'] ?? '';
+  const krobEid = cookies['_krob_eid'] ?? '';
+  const externalIdHash = krobEid ? await sha256hex(krobEid) : undefined;
+
+  const userData: Record<string, unknown> = {
+    client_ip_address: clientIp,
+    client_user_agent: userAgent,
+  };
+  if (fbp) userData['fbp'] = fbp;
+  if (fbc) userData['fbc'] = fbc;
+  if (externalIdHash) userData['external_id'] = [externalIdHash];
+
+  return userData;
 }
 
 export const POST: APIRoute = async (context) => {
@@ -145,7 +153,21 @@ export const POST: APIRoute = async (context) => {
       return new Response(null, { status: 204 });
     }
 
-    const capiPromise = sendToCapi(payload, context.request, runtime.env);
+    const env = runtime.env;
+    const userData = await buildUserData(context.request);
+
+    const promises: Promise<void>[] = [
+      sendToCapi(payload, context.request, env.PUBLIC_META_PIXEL_ID, env.META_CAPI_TOKEN, env.META_TEST_EVENT_CODE, userData),
+    ];
+
+    const pixelId2 = env.PUBLIC_META_PIXEL_ID_2 ?? '1588728982200831';
+    if (env.META_CAPI_TOKEN_2) {
+      promises.push(
+        sendToCapi(payload, context.request, pixelId2, env.META_CAPI_TOKEN_2, env.META_TEST_EVENT_CODE, userData)
+      );
+    }
+
+    const capiPromise = Promise.all(promises);
 
     // ctx.waitUntil permite retornar 204 antes da CAPI responder (crítico para beacons)
     // Fallback: await direto se ctx não estiver disponível

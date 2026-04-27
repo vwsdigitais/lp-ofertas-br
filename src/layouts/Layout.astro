@@ -16,6 +16,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 // Fallback hardcoded porque o Cloudflare Workers resolve env vars no runtime,
 // mas import.meta.env é resolvido no build time (onde a var não está disponível).
 const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
+const pixelId2 = import.meta.env.PUBLIC_META_PIXEL_ID_2 ?? '1588728982200831';
 ---
 
 <!doctype html>
@@ -142,7 +143,7 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
     </script>
 
     <!-- Meta Pixel -->
-    <script define:vars={{ pixelId }} is:inline>
+    <script define:vars={{ pixelId, pixelId2 }} is:inline>
       !function(f,b,e,v,n,t,s)
       {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
       n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -152,15 +153,17 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
       s.parentNode.insertBefore(t,s)}(window, document,'script',
       'https://connect.facebook.net/en_US/fbevents.js');
 
-      // Init com external_id first-party (cookie _krob_eid já setado pelo krobt.js)
-      fbq('init', pixelId, {
-        external_id: (document.cookie.match(/(?:^|;\s*)_krob_eid=([^;]*)/) || [])[1] || ''
-      });
+      var _krobExternalId = (document.cookie.match(/(?:^|;\s*)_krob_eid=([^;]*)/) || [])[1] || '';
+
+      // Init pixel 1
+      fbq('init', pixelId, { external_id: _krobExternalId });
+      // Init pixel 2 — fbq('track') dispara para ambos automaticamente
+      fbq('init', pixelId2, { external_id: _krobExternalId });
 
       // PageView pixel — eventID compartilhado com CAPI para deduplicação
       fbq('track', 'PageView', {}, { eventID: window.krobTracker.pageViewEventId });
 
-      // PageView servidor — mesmo eventID, Meta deduplica automaticamente
+      // PageView servidor — mesmo eventID, Meta deduplica automaticamente (envia para ambos os pixels)
       window.krobTracker.sendEvent('PageView', {}, { eventId: window.krobTracker.pageViewEventId });
 
 
@@ -168,6 +171,9 @@ const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID ?? '1682851872728506';
     <noscript>
       <img height="1" width="1" style="display:none"
         src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
+      />
+      <img height="1" width="1" style="display:none"
+        src={`https://www.facebook.com/tr?id=${pixelId2}&ev=PageView&noscript=1`}
       />
     </noscript>
 
